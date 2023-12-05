@@ -1,25 +1,29 @@
 package Cochez;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.openqa.selenium.By;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.openqa.selenium.*;
 import org.openqa.selenium.edge.EdgeDriver;
 import org.openqa.selenium.support.ui.ExpectedConditions;
 import org.openqa.selenium.support.ui.WebDriverWait;
+import org.testng.Assert;
+import org.testng.ITestResult;
+import org.testng.annotations.*;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.time.Duration;
-
-import static org.junit.Assert.assertTrue;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class ConteoCarrito {
     private WebDriver driver;
-    private int itemCount = 0; // Agregar la variable itemCount aquí
+    private int itemCount = 0;
 
-    @Before
+    @BeforeClass
     public void setUp() {
         System.setProperty("webdriver.edge.driver", "C:\\Users\\Ricardo\\Desktop\\Selenium\\Prueba\\src\\main\\resources\\Driver\\msedgedriver.exe");
         driver = new EdgeDriver();
@@ -27,25 +31,24 @@ public class ConteoCarrito {
         driver.get("https://www.cochezycia.com/");
     }
 
-    @Test
-    public void testConteoCarrito() {
-        String[] elementosABuscar = {"cama", "Lampara"};
+    @DataProvider(name = "searchData")
+    public Object[][] searchData() {
+        return new Object[][] {
+                {"cama"},
+                {"Lampara"}
+        };
+    }
 
-        for (String elemento : elementosABuscar) {
-            WebElement searchbox = driver.findElement(By.cssSelector("input.form-control.search_input.cc_search_input"));
-            searchbox.clear();
-            searchbox.sendKeys(elemento);
-            driver.findElement(By.xpath("//button[@class=' search_button']")).click();
+    @Test(dataProvider = "searchData")
+    public void testConteoCarrito(String elemento) {
+        WebElement searchbox = driver.findElement(By.cssSelector("input.form-control.search_input.cc_search_input"));
+        searchbox.clear();
+        searchbox.sendKeys(elemento);
+        driver.findElement(By.xpath("//button[@class=' search_button']")).click();
 
-            // Check if the search result contains the searched product
-            assertTrue(driver.getPageSource().contains(elemento));
+        Assert.assertTrue(driver.getPageSource().contains(elemento));
 
-            itemCount += agregarProductoAlCarrito(); // Actualizar itemCount con el resultado del método
-        }
-
-        System.out.println("Total items in the cart: " + itemCount);
-
-        // Optionally, perform additional assertions based on the total item count.
+        itemCount += agregarProductoAlCarrito();
     }
 
     private int agregarProductoAlCarrito() {
@@ -55,8 +58,52 @@ public class ConteoCarrito {
         return 1;
     }
 
-    @After
+    @AfterClass
     public void tearDown() {
         driver.quit();
+    }
+
+    @AfterMethod
+    public void afterMethod(ITestResult result) {
+        generateExcelReport(result.getMethod().getMethodName(), result.isSuccess());
+    }
+
+    private void generateExcelReport(String testName, boolean isSuccess) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Informe");
+            Row headerRow = sheet.createRow(0);
+
+            Cell headerCell1 = headerRow.createCell(0);
+            headerCell1.setCellValue("Nombre de la prueba");
+
+            Cell headerCell2 = headerRow.createCell(1);
+            headerCell2.setCellValue("Resultado");
+
+            Cell headerCell3 = headerRow.createCell(2);
+            headerCell3.setCellValue("Fecha y Hora");
+
+            Cell headerCell4 = headerRow.createCell(3);
+            headerCell4.setCellValue("Navegador");
+
+            Row resultRow = sheet.createRow(1);
+
+            Cell resultCell1 = resultRow.createCell(0);
+            resultCell1.setCellValue(testName);
+
+            Cell resultCell2 = resultRow.createCell(1);
+            resultCell2.setCellValue(isSuccess ? "Éxito" : "Fallo");
+
+            Cell resultCell3 = resultRow.createCell(2);
+            resultCell3.setCellValue(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+
+            Cell resultCell4 = resultRow.createCell(3);
+            resultCell4.setCellValue("Edge");
+
+            try (FileOutputStream fileOut = new FileOutputStream("Informe-" + testName + ".xlsx")) {
+                workbook.write(fileOut);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

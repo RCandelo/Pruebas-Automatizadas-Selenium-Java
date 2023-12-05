@@ -1,14 +1,21 @@
 package Cochez;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.edge.EdgeDriver;
+import org.testng.ITestResult;
+import org.testng.annotations.*;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+
+
 public class TiempoCarga {
 
     private WebDriver driver;
 
-    @Before
+    @BeforeClass
     public void setUp() {
         System.setProperty("webdriver.edge.driver", "C:\\Users\\Ricardo\\Desktop\\Selenium\\Prueba\\src\\main\\resources\\Driver\\msedgedriver.exe");
         driver = new EdgeDriver();
@@ -30,16 +37,43 @@ public class TiempoCarga {
             long loadTime = endTime - startTime;
             System.out.println("Tiempo de carga para el usuario " + (i + 1) + ": " + loadTime + " milisegundos");
 
-            // Cerrar el navegador después de cada prueba
-            driver.quit();
-            // Volver a crear una nueva instancia para la próxima iteración
-            driver = new EdgeDriver();
-            driver.manage().window().maximize();
+            generateExcelReport("Tiempo de carga para el usuario " + (i + 1), loadTime);
         }
     }
 
-    @After
+    private void generateExcelReport(String testName, long loadTime) {
+        try (Workbook workbook = new XSSFWorkbook()) {
+            Sheet sheet = workbook.createSheet("Informe");
+            Row headerRow = sheet.createRow(0);
+
+            Cell headerCell1 = headerRow.createCell(0);
+            headerCell1.setCellValue("Nombre de la prueba");
+
+            Cell headerCell2 = headerRow.createCell(1);
+            headerCell2.setCellValue("Tiempo de carga (milisegundos)");
+
+            Row resultRow = sheet.createRow(1);
+
+            Cell resultCell1 = resultRow.createCell(0);
+            resultCell1.setCellValue(testName);
+
+            Cell resultCell2 = resultRow.createCell(1);
+            resultCell2.setCellValue(loadTime);
+
+            try (FileOutputStream fileOut = new FileOutputStream("Informe-" + testName + ".xlsx")) {
+                workbook.write(fileOut);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @AfterClass
     public void tearDown() {
         driver.quit();
+    }
+
+    @AfterMethod
+    public void afterMethod(ITestResult result) {
     }
 }
